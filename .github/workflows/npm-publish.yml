@@ -1,0 +1,26 @@
+name: Node.js Package (npm)
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+      - run: npm install -g npm@latest
+      - run: npm ci --verbose --foreground-scripts
+        timeout-minutes: 10
+      - run: npm publish --access public
+
