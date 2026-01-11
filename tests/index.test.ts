@@ -12,7 +12,7 @@ import {
   type ExecutionOptions,
   type ProviderResponse,
   type Provider,
-} from './index.js';
+} from '../src/index.js';
 
 describe('AnthropicProvider', () => {
   let provider: AnthropicProvider;
