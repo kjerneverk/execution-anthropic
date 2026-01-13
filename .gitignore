@@ -6,5 +6,6 @@ node_modules
 .vscode
 coverage/
 **/.DS_Store
+package-lock.json
 
 output/
