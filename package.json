@@ -1,6 +1,6 @@
 {
   "name": "@riotprompt/execution-anthropic",
-  "version": "0.0.3",
+  "version": "0.0.4-dev.0",
   "description": "Anthropic Claude provider for execution interface",
   "type": "module",
   "main": "./dist/index.cjs",
