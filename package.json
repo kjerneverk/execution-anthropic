@@ -3,15 +3,16 @@
   "version": "0.0.4-dev.0",
   "description": "Anthropic Claude provider for execution interface",
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     }
+  },
+  "engines": {
+    "node": ">=24.0.0"
   },
   "scripts": {
     "clean": "rm -rf dist",
