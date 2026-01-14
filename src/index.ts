@@ -7,6 +7,45 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { getRedactor } from '@theunwalked/offrecord';
+import { 
+    createSafeError, 
+    configureErrorSanitizer,
+    configureSecretGuard,
+} from '@theunwalked/spotclean';
+
+// Register Anthropic API key patterns on module load
+const redactor = getRedactor();
+redactor.register({
+    name: 'anthropic',
+    patterns: [
+        /sk-ant-[a-zA-Z0-9_-]+/g,
+        /sk-ant-api\d+-[a-zA-Z0-9_-]+/g,
+    ],
+    validator: (key: string) => /^sk-ant(-api\d+)?-[a-zA-Z0-9_-]+$/.test(key),
+    envVar: 'ANTHROPIC_API_KEY',
+    description: 'Anthropic API keys',
+});
+
+// Configure spotclean for error sanitization
+configureErrorSanitizer({
+    enabled: true,
+    environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+    includeCorrelationId: true,
+    sanitizeStackTraces: process.env.NODE_ENV === 'production',
+    maxMessageLength: 500,
+});
+
+configureSecretGuard({
+    enabled: true,
+    redactionText: '[REDACTED]',
+    preservePartial: false,
+    preserveLength: 0,
+    customPatterns: [
+        { name: 'anthropic', pattern: /sk-ant-[a-zA-Z0-9_-]+/g, description: 'Anthropic API key' },
+        { name: 'anthropic-api', pattern: /sk-ant-api\d+-[a-zA-Z0-9_-]+/g, description: 'Anthropic API key' },
+    ],
+});
 
 // ===== INLINE TYPES (from 'execution' package) =====
 
@@ -80,82 +119,97 @@ export class AnthropicProvider implements Provider {
         options: ExecutionOptions = {}
     ): Promise<ProviderResponse> {
         const apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY;
-        if (!apiKey) throw new Error('Anthropic API key is required');
+        
+        if (!apiKey) {
+            throw new Error('Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable.');
+        }
 
-        const client = new Anthropic({ apiKey });
+        // Validate key format
+        const validation = redactor.validateKey(apiKey, 'anthropic');
+        if (!validation.valid) {
+            throw new Error('Invalid Anthropic API key format');
+        }
 
-        const model = options.model || request.model || 'claude-3-opus-20240229';
+        try {
+            const client = new Anthropic({ apiKey });
 
-        // Anthropic separates system prompt from messages
-        let systemPrompt = '';
-        const messages: Anthropic.MessageParam[] = [];
+            const model = options.model || request.model || 'claude-3-opus-20240229';
 
-        for (const msg of request.messages) {
-            if (msg.role === 'system' || msg.role === 'developer') {
-                systemPrompt +=
-                    (typeof msg.content === 'string'
-                        ? msg.content
-                        : JSON.stringify(msg.content)) + '\n\n';
-            } else {
-                messages.push({
-                    role: msg.role as 'user' | 'assistant',
-                    content:
-                        typeof msg.content === 'string'
+            // Anthropic separates system prompt from messages
+            let systemPrompt = '';
+            const messages: Anthropic.MessageParam[] = [];
+
+            for (const msg of request.messages) {
+                if (msg.role === 'system' || msg.role === 'developer') {
+                    systemPrompt +=
+                        (typeof msg.content === 'string'
                             ? msg.content
-                            : JSON.stringify(msg.content),
-                });
-            }
-        }
-
-        const response = await client.messages.create({
-            model: model,
-            system: systemPrompt.trim() || undefined,
-            messages: messages,
-            max_tokens: options.maxTokens || 4096,
-            temperature: options.temperature,
-            ...(request.responseFormat?.type === 'json_schema'
-                ? {
-                    tools: [
-                        {
-                            name: request.responseFormat.json_schema.name,
-                            description:
-                                  request.responseFormat.json_schema.description ||
-                                  'Output data in this structured format',
-                            input_schema:
-                                  request.responseFormat.json_schema.schema,
-                        },
-                    ],
-                    tool_choice: {
-                        type: 'tool' as const,
-                        name: request.responseFormat.json_schema.name,
-                    },
+                            : JSON.stringify(msg.content)) + '\n\n';
+                } else {
+                    messages.push({
+                        role: msg.role as 'user' | 'assistant',
+                        content:
+                            typeof msg.content === 'string'
+                                ? msg.content
+                                : JSON.stringify(msg.content),
+                    });
                 }
-                : {}),
-        });
-
-        // Handle ContentBlock
-        let text = '';
-
-        if (request.responseFormat?.type === 'json_schema') {
-            const toolUseBlock = response.content.find(
-                (block) => block.type === 'tool_use'
-            );
-            if (toolUseBlock && toolUseBlock.type === 'tool_use') {
-                text = JSON.stringify(toolUseBlock.input, null, 2);
             }
-        } else {
-            const contentBlock = response.content[0];
-            text = contentBlock.type === 'text' ? contentBlock.text : '';
-        }
 
-        return {
-            content: text,
-            model: response.model,
-            usage: {
-                inputTokens: response.usage.input_tokens,
-                outputTokens: response.usage.output_tokens,
-            },
-        };
+            const response = await client.messages.create({
+                model: model,
+                system: systemPrompt.trim() || undefined,
+                messages: messages,
+                max_tokens: options.maxTokens || 4096,
+                temperature: options.temperature,
+                ...(request.responseFormat?.type === 'json_schema'
+                    ? {
+                        tools: [
+                            {
+                                name: request.responseFormat.json_schema.name,
+                                description:
+                                      request.responseFormat.json_schema.description ||
+                                      'Output data in this structured format',
+                                input_schema:
+                                      request.responseFormat.json_schema.schema,
+                            },
+                        ],
+                        tool_choice: {
+                            type: 'tool' as const,
+                            name: request.responseFormat.json_schema.name,
+                        },
+                    }
+                    : {}),
+            });
+
+            // Handle ContentBlock
+            let text = '';
+
+            if (request.responseFormat?.type === 'json_schema') {
+                const toolUseBlock = response.content.find(
+                    (block) => block.type === 'tool_use'
+                );
+                if (toolUseBlock && toolUseBlock.type === 'tool_use') {
+                    text = JSON.stringify(toolUseBlock.input, null, 2);
+                }
+            } else {
+                const contentBlock = response.content[0];
+                text = contentBlock.type === 'text' ? contentBlock.text : '';
+            }
+
+            return {
+                content: text,
+                model: response.model,
+                usage: {
+                    inputTokens: response.usage.input_tokens,
+                    outputTokens: response.usage.output_tokens,
+                },
+            };
+        } catch (error) {
+            // Sanitize error to remove any API keys from error messages
+            // Use spotclean for comprehensive error sanitization
+            throw createSafeError(error as Error, { provider: 'anthropic' });
+        }
     }
 }
 

@@ -10,7 +10,13 @@ export default defineConfig({
       formats: ["es"],
     },
     rollupOptions: {
-      external: ["@anthropic-ai/sdk", "execution"],
+      external: [
+        "@anthropic-ai/sdk",
+        "execution",
+        "@theunwalked/offrecord",
+        "@theunwalked/spotclean",
+        "node:crypto",
+      ],
     },
     sourcemap: true,
     minify: false,
