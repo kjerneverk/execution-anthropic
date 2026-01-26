@@ -1,6 +1,6 @@
 {
   "name": "@riotprompt/execution-anthropic",
-  "version": "0.0.4",
+  "version": "1.0.0",
   "description": "Anthropic Claude provider for execution interface",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,7 +20,7 @@
     "test": "vitest run --coverage",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src",
-    "precommit": "npm run lint && npm run test",
+    "precommit": "npm run build && npm run lint && npm run test",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
@@ -37,7 +37,9 @@
     "url": "https://github.com/kjerneverk/execution-anthropic"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0"
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@theunwalked/offrecord": "^0.0.1",
+    "@theunwalked/spotclean": "^0.0.3"
   },
   "devDependencies": {
     "@types/node": "^25.0.6",
