@@ -22,5 +22,14 @@ jobs:
       - run: npm install -g npm@latest
       - run: npm install --verbose --foreground-scripts
         timeout-minutes: 10
-      - run: npm publish --access public
+      - name: Determine npm tag
+        id: npm-tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *"-"* ]]; then
+            echo "tag=dev" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+      - run: npm publish --access public --tag ${{ steps.npm-tag.outputs.tag }}
 
