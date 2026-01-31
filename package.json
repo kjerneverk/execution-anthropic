@@ -1,5 +1,5 @@
 {
-  "name": "@riotprompt/execution-anthropic",
+  "name": "@kjerneverk/execution-anthropic",
   "version": "1.0.4-dev.0",
   "description": "Anthropic Claude provider for execution interface",
   "type": "module",
