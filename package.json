@@ -37,7 +37,7 @@
     "url": "https://github.com/kjerneverk/execution-anthropic"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
+    "@anthropic-ai/sdk": "^0.72.1",
     "@utilarium/offrecord": "^0.0.3",
     "@utilarium/spotclean": "^0.0.4"
   },
