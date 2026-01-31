@@ -13,8 +13,8 @@ export default defineConfig({
       external: [
         "@anthropic-ai/sdk",
         "execution",
-        "@theunwalked/offrecord",
-        "@theunwalked/spotclean",
+        "@utilarium/offrecord",
+        "@utilarium/spotclean",
         "node:crypto",
       ],
     },

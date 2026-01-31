@@ -7,12 +7,12 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { getRedactor } from '@theunwalked/offrecord';
+import { getRedactor } from '@utilarium/offrecord';
 import { 
     createSafeError, 
     configureErrorSanitizer,
     configureSecretGuard,
-} from '@theunwalked/spotclean';
+} from '@utilarium/spotclean';
 
 // Register Anthropic API key patterns on module load
 const redactor = getRedactor();
