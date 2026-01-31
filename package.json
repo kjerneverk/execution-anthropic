@@ -38,8 +38,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
-    "@theunwalked/offrecord": "^0.0.1",
-    "@theunwalked/spotclean": "^0.0.3"
+    "@utilarium/offrecord": "^0.0.3",
+    "@utilarium/spotclean": "^0.0.4"
   },
   "devDependencies": {
     "@types/node": "^25.0.6",
