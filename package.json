@@ -39,7 +39,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "@utilarium/offrecord": "^0.0.3",
-    "@utilarium/spotclean": "^0.0.4"
+    "@utilarium/spotclean": "^0.0.4",
+    "undici": "^7.21.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.6",

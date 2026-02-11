@@ -8,6 +8,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { getRedactor } from '@utilarium/offrecord';
+import { getProxyUrl, createProxyFetch } from './proxy.js';
 import { 
     createSafeError, 
     configureErrorSanitizer,
@@ -131,7 +132,12 @@ export class AnthropicProvider implements Provider {
         }
 
         try {
-            const client = new Anthropic({ apiKey });
+            const clientOptions: ConstructorParameters<typeof Anthropic>[0] = { apiKey };
+            const proxyUrl = getProxyUrl();
+            if (proxyUrl) {
+                clientOptions.fetch = createProxyFetch(proxyUrl);
+            }
+            const client = new Anthropic(clientOptions);
 
             const model = options.model || request.model || 'claude-3-opus-20240229';
 
