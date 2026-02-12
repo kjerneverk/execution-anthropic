@@ -12,6 +12,7 @@ export default defineConfig({
     rollupOptions: {
       external: [
         "@anthropic-ai/sdk",
+        "undici",
         "execution",
         "@utilarium/offrecord",
         "@utilarium/spotclean",
