@@ -91,6 +91,8 @@ export interface StreamChunk {
     usage?: {
         inputTokens: number;
         outputTokens: number;
+        cacheCreationInputTokens?: number;
+        cacheReadInputTokens?: number;
     };
 }
 
@@ -216,11 +218,21 @@ export class AnthropicProvider implements Provider {
                     }
                     
                     for (const tc of toolCalls) {
+                        // Parse arguments, defaulting to empty object if empty or invalid
+                        let input: Record<string, unknown> = {};
+                        if (tc.function.arguments && tc.function.arguments.trim()) {
+                            try {
+                                input = JSON.parse(tc.function.arguments);
+                            } catch {
+                                // If arguments can't be parsed, use empty object
+                                input = {};
+                            }
+                        }
                         content.push({
                             type: 'tool_use',
                             id: tc.id,
                             name: tc.function.name,
-                            input: JSON.parse(tc.function.arguments),
+                            input,
                         });
                     }
                     
@@ -271,7 +283,7 @@ export class AnthropicProvider implements Provider {
                 model: model,
                 system: systemPrompt.trim() || undefined,
                 messages: messages,
-                max_tokens: options.maxTokens || 4096,
+                max_tokens: options.maxTokens || 50000,
                 temperature: options.temperature,
                 ...(anthropicTools ? { tools: anthropicTools } : {}),
                 ...(toolChoice ? { tool_choice: toolChoice } : {}),
@@ -341,8 +353,44 @@ export class AnthropicProvider implements Provider {
             throw new Error('Invalid Anthropic API key format');
         }
 
+        // Idle timeout configuration (default 5 minutes)
+        // This detects when the stream stops sending data mid-response
+        // Set high because the model can take a long time to process large inputs
+        // and decide on tool calls between streaming text chunks
+        const idleTimeoutMs = options.timeout || 300000;
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
+        let abortController: AbortController | null = null;
+
+        const resetIdleTimer = () => {
+            if (idleTimer) {
+                clearTimeout(idleTimer);
+            }
+            idleTimer = setTimeout(() => {
+                if (abortController) {
+                    abortController.abort();
+                }
+            }, idleTimeoutMs);
+        };
+
+        const clearIdleTimer = () => {
+            if (idleTimer) {
+                clearTimeout(idleTimer);
+                idleTimer = null;
+            }
+        };
+
         try {
-            const client = new Anthropic({ apiKey });
+            abortController = new AbortController();
+            const clientOptions: ConstructorParameters<typeof Anthropic>[0] = { 
+                apiKey,
+                // Set overall timeout (10 minutes default, or user-specified)
+                timeout: options.timeout || 600000,
+            };
+            const proxyUrl = getProxyUrl();
+            if (proxyUrl) {
+                clientOptions.fetch = createProxyFetch(proxyUrl);
+            }
+            const client = new Anthropic(clientOptions);
 
             const model = options.model || request.model || 'claude-3-opus-20240229';
 
@@ -370,6 +418,38 @@ export class AnthropicProvider implements Provider {
                             },
                         ],
                     });
+                } else if (msg.role === 'assistant' && (msg as any).tool_calls) {
+                    // Handle assistant messages with tool calls
+                    const toolCalls = (msg as any).tool_calls;
+                    const content: Anthropic.ContentBlockParam[] = [];
+                    
+                    if (msg.content) {
+                        content.push({
+                            type: 'text',
+                            text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                        });
+                    }
+                    
+                    for (const tc of toolCalls) {
+                        // Parse arguments, defaulting to empty object if empty or invalid
+                        let input: Record<string, unknown> = {};
+                        if (tc.function.arguments && tc.function.arguments.trim()) {
+                            try {
+                                input = JSON.parse(tc.function.arguments);
+                            } catch {
+                                // If arguments can't be parsed, use empty object
+                                input = {};
+                            }
+                        }
+                        content.push({
+                            type: 'tool_use',
+                            id: tc.id,
+                            name: tc.function.name,
+                            input,
+                        });
+                    }
+                    
+                    messages.push({ role: 'assistant', content });
                 } else {
                     messages.push({
                         role: msg.role as 'user' | 'assistant',
@@ -391,19 +471,43 @@ export class AnthropicProvider implements Provider {
                 }));
             }
 
+            // Build system prompt with cache control for prompt caching
+            // Cache the system prompt since it's the same across turns
+            const systemBlocks: Anthropic.TextBlockParam[] = systemPrompt.trim() 
+                ? [{
+                    type: 'text' as const,
+                    text: systemPrompt.trim(),
+                    cache_control: { type: 'ephemeral' as const },
+                }]
+                : [];
+
             const stream = client.messages.stream({
                 model: model,
-                system: systemPrompt.trim() || undefined,
+                system: systemBlocks.length > 0 ? systemBlocks : undefined,
                 messages: messages,
-                max_tokens: options.maxTokens || 4096,
+                max_tokens: options.maxTokens || 50000, // High default for tool calls with large content
                 temperature: options.temperature,
                 ...(anthropicTools ? { tools: anthropicTools, tool_choice: { type: 'auto' as const } } : {}),
+            }, {
+                signal: abortController.signal,
             });
 
             // Track tool calls being built
             const toolCallsInProgress: Map<number, { id: string; name: string; arguments: string }> = new Map();
 
+            // Don't start idle timer until first event - initial processing can take a while for large inputs
+            let idleTimerStarted = false;
+
             for await (const event of stream) {
+                // Start idle timer after first event (initial "thinking" time can be long)
+                if (!idleTimerStarted) {
+                    idleTimerStarted = true;
+                    resetIdleTimer();
+                } else {
+                    // Reset idle timer on subsequent events
+                    resetIdleTimer();
+                }
+
                 if (event.type === 'content_block_start') {
                     if (event.content_block.type === 'tool_use') {
                         const index = event.index;
@@ -462,21 +566,48 @@ export class AnthropicProvider implements Provider {
                         };
                     }
                 } else if (event.type === 'message_start') {
-                    // Capture input tokens from message_start
+                    // Capture input tokens from message_start, including cache stats
                     if (event.message.usage) {
+                        const usage = event.message.usage as any; // Cache fields may not be in types yet
                         yield {
                             type: 'usage',
                             usage: {
-                                inputTokens: event.message.usage.input_tokens,
+                                inputTokens: usage.input_tokens,
                                 outputTokens: 0,
+                                cacheCreationInputTokens: usage.cache_creation_input_tokens || 0,
+                                cacheReadInputTokens: usage.cache_read_input_tokens || 0,
                             },
                         };
                     }
                 }
             }
 
+            // Clear idle timer on successful completion
+            clearIdleTimer();
             yield { type: 'done' };
         } catch (error) {
+            // Clear idle timer on error
+            clearIdleTimer();
+            
+            // Check if this was an abort due to idle timeout
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error(`Stream idle timeout: no data received for ${idleTimeoutMs / 1000} seconds. The API may be unresponsive.`);
+            }
+            
+            // Check for common abort/connection errors and provide better messages
+            if (error instanceof Error) {
+                const msg = error.message.toLowerCase();
+                if (msg.includes('aborted') || msg.includes('abort')) {
+                    throw new Error(`Request aborted: The connection to Anthropic was interrupted. This may be due to network issues or server-side timeout. Try again.`);
+                }
+                if (msg.includes('timeout')) {
+                    throw new Error(`Request timeout: The Anthropic API took too long to respond. Try with a smaller input or try again later.`);
+                }
+                if (msg.includes('econnreset') || msg.includes('socket hang up')) {
+                    throw new Error(`Connection reset: Lost connection to Anthropic API. Check your network and try again.`);
+                }
+            }
+            
             throw createSafeError(error as Error, { provider: 'anthropic' });
         }
     }
