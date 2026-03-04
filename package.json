@@ -1,6 +1,6 @@
 {
   "name": "@kjerneverk/execution-anthropic",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Anthropic Claude provider for execution interface",
   "type": "module",
   "main": "./dist/index.js",
