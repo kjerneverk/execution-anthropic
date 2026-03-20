@@ -48,6 +48,19 @@ configureSecretGuard({
     ],
 });
 
+/**
+ * Default model when the request and options omit `model`.
+ * Uses the current flagship Sonnet; override with `ExecutionOptions.model` or `Request.model`.
+ */
+export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6' as const;
+
+/** Stable API identifiers for the latest generation (see Anthropic models documentation). */
+export const CLAUDE_OPUS_LATEST = 'claude-opus-4-6' as const;
+export const CLAUDE_SONNET_LATEST = 'claude-sonnet-4-6' as const;
+export const CLAUDE_HAIKU_LATEST = 'claude-haiku-4-5' as const;
+
+export type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages/messages.js';
+
 // ===== INLINE TYPES (from 'execution' package) =====
 
 export type Model = string;
@@ -179,7 +192,7 @@ export class AnthropicProvider implements Provider {
             }
             const client = new Anthropic(clientOptions);
 
-            const model = options.model || request.model || 'claude-3-opus-20240229';
+            const model = options.model || request.model || DEFAULT_ANTHROPIC_MODEL;
 
             // Anthropic separates system prompt from messages
             let systemPrompt = '';
@@ -392,7 +405,7 @@ export class AnthropicProvider implements Provider {
             }
             const client = new Anthropic(clientOptions);
 
-            const model = options.model || request.model || 'claude-3-opus-20240229';
+            const model = options.model || request.model || DEFAULT_ANTHROPIC_MODEL;
 
             // Anthropic separates system prompt from messages
             let systemPrompt = '';

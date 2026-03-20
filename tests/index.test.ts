@@ -7,11 +7,16 @@ import {
   AnthropicProvider,
   createAnthropicProvider,
   VERSION,
+  DEFAULT_ANTHROPIC_MODEL,
+  CLAUDE_OPUS_LATEST,
+  CLAUDE_SONNET_LATEST,
+  CLAUDE_HAIKU_LATEST,
   type Message,
   type Request,
   type ExecutionOptions,
   type ProviderResponse,
   type Provider,
+  type AnthropicModel,
 } from '../src/index.js';
 
 describe('AnthropicProvider', () => {
@@ -42,6 +47,12 @@ describe('AnthropicProvider', () => {
     it('should support Claude 4 models', () => {
       expect(provider.supportsModel('claude-4-opus')).toBe(true);
       expect(provider.supportsModel('claude-sonnet-4-20250514')).toBe(true);
+    });
+
+    it('should support Claude 4.5 / 4.6 API model IDs', () => {
+      expect(provider.supportsModel('claude-opus-4-6')).toBe(true);
+      expect(provider.supportsModel('claude-sonnet-4-6')).toBe(true);
+      expect(provider.supportsModel('claude-haiku-4-5-20251001')).toBe(true);
     });
 
     it('should not support GPT models', () => {
@@ -118,6 +129,20 @@ describe('createAnthropicProvider', () => {
 describe('VERSION', () => {
   it('should export version string', () => {
     expect(VERSION).toBe('0.0.1');
+  });
+});
+
+describe('model constants', () => {
+  it('should export defaults aligned with Anthropic SDK typings', () => {
+    expect(DEFAULT_ANTHROPIC_MODEL).toBe('claude-sonnet-4-6');
+    expect(CLAUDE_OPUS_LATEST).toBe('claude-opus-4-6');
+    expect(CLAUDE_SONNET_LATEST).toBe('claude-sonnet-4-6');
+    expect(CLAUDE_HAIKU_LATEST).toBe('claude-haiku-4-5');
+  });
+
+  it('should type-check AnthropicModel literals', () => {
+    const m: AnthropicModel = CLAUDE_SONNET_LATEST;
+    expect(m).toBe('claude-sonnet-4-6');
   });
 });
 

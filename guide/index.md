@@ -5,25 +5,28 @@ Anthropic Claude provider for `execution` interface.
 ## Quick Start
 
 ```typescript
-import { AnthropicProvider } from 'execution-anthropic';
+import { createAnthropicProvider, CLAUDE_SONNET_LATEST } from 'execution-anthropic';
 
-const provider = new AnthropicProvider({
-  apiKey: process.env.ANTHROPIC_API_KEY
-});
+const provider = createAnthropicProvider();
 
-const response = await provider.execute(messages, {
-  model: 'claude-3-opus-20240229'
-});
+const response = await provider.execute(
+  {
+    messages: [{ role: 'user', content: 'Hello' }],
+    model: CLAUDE_SONNET_LATEST,
+    addMessage: () => {},
+  },
+  { apiKey: process.env.ANTHROPIC_API_KEY }
+);
 ```
 
 ## Supported Models
 
-| Model | Vision | Tools |
-|-------|--------|-------|
-| claude-3-opus | ✅ | ✅ |
-| claude-3-sonnet | ✅ | ✅ |
-| claude-3-haiku | ✅ | ✅ |
-| claude-2.1 | ❌ | ❌ |
+| Model family | Example API IDs |
+|--------------|-----------------|
+| Claude 4.6 | `claude-opus-4-6`, `claude-sonnet-4-6` |
+| Claude 4.5 | `claude-sonnet-4-5-20250929`, `claude-haiku-4-5-20251001`, … |
+| Claude 4.x | `claude-opus-4-20250514`, `claude-sonnet-4-20250514`, … |
+| Claude 3.x | `claude-3-opus-20240229`, `claude-3-haiku-20240307`, … |
 
 ## Dependencies
 
