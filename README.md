@@ -11,7 +11,12 @@ npm install execution-anthropic @anthropic-ai/sdk
 ## Usage
 
 ```typescript
-import { AnthropicProvider, createAnthropicProvider } from 'execution-anthropic';
+import {
+  AnthropicProvider,
+  createAnthropicProvider,
+  CLAUDE_SONNET_LATEST,
+  DEFAULT_ANTHROPIC_MODEL,
+} from 'execution-anthropic';
 
 // Create provider
 const provider = createAnthropicProvider();
@@ -19,7 +24,7 @@ const provider = createAnthropicProvider();
 // Execute a request
 const response = await provider.execute(
   {
-    model: 'claude-3-opus-20240229',
+    model: CLAUDE_SONNET_LATEST, // or omit to use DEFAULT_ANTHROPIC_MODEL
     messages: [
       { role: 'system', content: 'You are helpful.' },
       { role: 'user', content: 'Hello!' }
@@ -39,11 +44,14 @@ console.log(response.usage); // { inputTokens: X, outputTokens: Y }
 
 ## Supported Models
 
-The provider supports all Claude models:
-- Claude 3 Opus
-- Claude 3 Sonnet
-- Claude 3 Haiku
-- Claude 3.5 family
+Any model string the Anthropic API accepts is supported (`supportsModel` checks the `claude` prefix). This package depends on a current `@anthropic-ai/sdk`, whose typings include IDs such as:
+
+- **Claude 4.6** — `claude-opus-4-6`, `claude-sonnet-4-6`
+- **Claude 4.5** — `claude-opus-4-5`, `claude-opus-4-5-20251101`, `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5`, `claude-haiku-4-5-20251001`
+- **Claude 4.0 / 4.1** — e.g. `claude-opus-4-20250514`, `claude-sonnet-4-20250514`, `claude-opus-4-1-20250805`
+- **Claude 3.x** — legacy dated IDs (e.g. `claude-3-opus-20240229`) remain valid where the API still serves them
+
+Exported helpers: `DEFAULT_ANTHROPIC_MODEL`, `CLAUDE_OPUS_LATEST`, `CLAUDE_SONNET_LATEST`, `CLAUDE_HAIKU_LATEST`, and TypeScript type `AnthropicModel` (re-exported from the SDK).
 
 ## API Key
 
