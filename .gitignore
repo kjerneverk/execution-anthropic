@@ -8,4 +8,6 @@ coverage/
 **/.DS_Store
 
 output/
+.kodrdriv*package-lock.json
 .kodrdriv*
+package-lock.json
